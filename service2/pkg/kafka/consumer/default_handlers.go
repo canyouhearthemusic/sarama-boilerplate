@@ -9,18 +9,6 @@ import (
 	"github.com/IBM/sarama"
 )
 
-type recoveryHandler struct{ next Handler }
-
-func (h *recoveryHandler) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r)
-		}
-	}()
-
-	return h.next.Handle(ctx, msg)
-}
-
 type retryHandler struct {
 	next        Handler
 	maxAttempts int
@@ -33,9 +21,11 @@ func (h *retryHandler) Handle(ctx context.Context, msg *sarama.ConsumerMessage) 
 		if err = h.next.Handle(ctx, msg); err == nil {
 			return nil
 		}
+
 		if attempt == h.maxAttempts {
 			break
 		}
+
 		select {
 		case <-time.After(h.backoff * time.Duration(attempt)):
 		case <-ctx.Done():
@@ -67,18 +57,6 @@ func (h *dlqHandler) Handle(ctx context.Context, msg *sarama.ConsumerMessage) er
 }
 
 // --- Batch middleware ---
-
-type batchRecoveryHandler struct{ next BatchHandler }
-
-func (h *batchRecoveryHandler) HandleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r)
-		}
-	}()
-
-	return h.next.HandleBatch(ctx, msgs)
-}
 
 type batchRetryHandler struct {
 	next        BatchHandler

@@ -105,8 +105,6 @@ func (c *TopicConsumer) Run(ctx context.Context) error {
 	}
 }
 
-// --- sarama.ConsumerGroupHandler implementation ---
-
 func (c *TopicConsumer) Setup(session sarama.ConsumerGroupSession) error {
 	if c.onSetup != nil {
 		return c.onSetup(session)
@@ -145,7 +143,7 @@ func (c *TopicConsumer) consumeClaimSingle(
 				return nil
 			}
 
-			if err := c.handler.Handle(session.Context(), msg); err != nil {
+			if err := c.safeHandle(session.Context(), msg); err != nil {
 				log.Printf("[%s] unhandled error on offset %d: %v",
 					c.topic, msg.Offset, err)
 				continue
@@ -157,6 +155,16 @@ func (c *TopicConsumer) consumeClaimSingle(
 			return nil
 		}
 	}
+}
+
+func (c *TopicConsumer) safeHandle(ctx context.Context, msg *sarama.ConsumerMessage) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v\n", msg)
+		}
+	}()
+
+	return c.handler.Handle(ctx, msg)
 }
 
 func (c *TopicConsumer) consumeClaimBatch(
@@ -171,7 +179,7 @@ func (c *TopicConsumer) consumeClaimBatch(
 		if len(batch) == 0 {
 			return
 		}
-		if err := c.batchHandler.HandleBatch(session.Context(), batch); err != nil {
+		if err := c.safeHandleBatch(session.Context(), batch); err != nil {
 			log.Printf("[%s] unhandled batch error (%d msgs): %v",
 				c.topic, len(batch), err)
 		} else {
@@ -201,4 +209,14 @@ func (c *TopicConsumer) consumeClaimBatch(
 			return nil
 		}
 	}
+}
+
+func (c *TopicConsumer) safeHandleBatch(ctx context.Context, msgs []*sarama.ConsumerMessage) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v\n", r)
+		}
+	}()
+
+	return c.batchHandler.HandleBatch(ctx, msgs)
 }

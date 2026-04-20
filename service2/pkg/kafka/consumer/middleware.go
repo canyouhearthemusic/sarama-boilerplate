@@ -12,13 +12,6 @@ type Middleware func(Handler) Handler
 // BatchMiddleware wraps a batch handler with cross-cutting behavior.
 type BatchMiddleware func(BatchHandler) BatchHandler
 
-// WithRecovery catches panics and converts them to errors.
-func WithRecovery() Middleware {
-	return func(next Handler) Handler {
-		return &recoveryHandler{next}
-	}
-}
-
 // WithRetry retries the handler with linear backoff.
 func WithRetry(maxAttempts int, backoff time.Duration) Middleware {
 	return func(next Handler) Handler {
@@ -45,12 +38,5 @@ func WithBatchDLQ(producer sarama.SyncProducer, dlqTopic string) BatchMiddleware
 func WithBatchRetry(maxAttempts int, backoff time.Duration) BatchMiddleware {
 	return func(next BatchHandler) BatchHandler {
 		return &batchRetryHandler{next: next, maxAttempts: maxAttempts, backoff: backoff}
-	}
-}
-
-// WithBatchRecovery catches panics in batch handlers.
-func WithBatchRecovery() BatchMiddleware {
-	return func(next BatchHandler) BatchHandler {
-		return &batchRecoveryHandler{next}
 	}
 }

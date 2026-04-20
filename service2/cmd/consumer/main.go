@@ -41,7 +41,6 @@ func main() {
 		consumer.NewTopicConsumer("user_waved", "svc2-user-waved", brokers, cfg,
 			consumer.Chain(
 				handlers.NewUserWavedHandler(db),
-				consumer.WithRecovery(),
 				consumer.WithRetry(3, 500*time.Millisecond),
 				consumer.WithDLQ(dlqProducer, "user_waved_dlq"),
 			),
@@ -61,6 +60,7 @@ func main() {
 	}
 
 	wg.Wait()
+
 	log.Println("all consumers stopped")
 }
 
